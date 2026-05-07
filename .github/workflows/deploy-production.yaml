@@ -1,77 +1,52 @@
-# Tên của Workflow, hiển thị trên giao diện GitHub Actions
+# Tên của Workflow
 name: Deploy to Production
 
-# Định nghĩa sự kiện kích hoạt workflow
+# Kích hoạt khi có hành động 'push' vào nhánh "main"
 on:
-  # Kích hoạt khi có hành động 'push' (đẩy code lên)
   push:
-    # Chỉ áp dụng cho nhánh "main"
-    branches: ["main"]
+    branches: ["staging"]
 
-# Danh sách các công việc (jobs) cần thực hiện
 jobs:
-  # Job thứ nhất: Xây dựng và đẩy image lên Docker Hub
+  # Job 1: Build và đẩy Image lên Docker Hub
   build-and-push:
-    # Hệ điều hành sẽ chạy job này (máy ảo của GitHub)
-    runs-on: ubuntu-latest
-
-    # Các bước thực thi trong job build-and-push
+    runs-on: ubuntu-latest # Chạy trên máy ảo của GitHub để tiết kiệm tài nguyên máy bạn
     steps:
-      # Bước 1: Lấy code từ repository về máy ảo
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Bước 2: Đăng nhập vào Docker Hub sử dụng Secrets (biến bảo mật)
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
-          # username và token được lấy từ GitHub Secrets để đảm bảo an toàn
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Bước 3: Build Docker image từ Dockerfile và đẩy (push) lên Docker Hub
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
-          # Ngữ cảnh build là thư mục hiện tại
           context: .
-          # Cho phép đẩy image lên registry sau khi build xong
           push: true
-          # Gắn thẻ (tag) cho image: <tên_user>/<tên_app>:<phiên_bản>
+          # Tên image: <tên_user>/hello-app:latest
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/hello-app:latest
 
-  # Job thứ hai: Triển khai (Deploy) lên server thực tế
+  # Job 2: Triển khai trực tiếp trên máy ảo VMware
   deploy:
-    # Chỉ chạy job này sau khi job 'build-and-push' hoàn thành thành công
     needs: build-and-push
-    runs-on: ubuntu-latest
-
+    # QUAN TRỌNG: Phải đặt là self-hosted để GitHub tìm đến máy ảo của bạn
+    runs-on: self-hosted 
+    
     steps:
-      # Bước duy nhất: Kết nối tới Server qua SSH và thực hiện lệnh
-      # BƯỚC 1: Phải có bước này để máy của GitHub có "công cụ" chui vào tunnel
-      - name: Install Cloudflared
+      - name: Deploy application
         run: |
-          curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-          sudo dpkg -i cloudflared.deb
-
-      # BƯỚC 2: Kiểm tra xem tunnel có đang sống không (Debug)
-      - name: Test Tunnel Connectivity
-        run: |
-          cloudflared access ssh --hostname ${{ secrets.SERVER_IP }} --dry-run
-          echo "Tunnel is reachable!"
-      - name: Deploy to Server via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          # Các thông tin kết nối lấy từ GitHub Secrets
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # Kịch bản lệnh (script) sẽ chạy trực tiếp trên Server của bạn
-          port: 22
-          script: |
-            # Di chuyển vào thư mục chứa dự án trên server
-            cd /home/${{ secrets.SERVER_USER }}/app
-            # Tải image mới nhất từ Docker Hub về server
-            docker-compose pull
-            # Khởi động lại các container (ở chế độ chạy ngầm -d) với image mới
-            docker-compose up -d
+          # Di chuyển vào thư mục chứa dự án trên máy ảo
+          # Thay 'app' bằng tên thư mục dự án thực tế của bạn
+          cd /home/${{ secrets.SERVER_USER }}/app
+          
+          # Tải bản build mới nhất vừa đẩy lên Docker Hub về
+          docker-compose pull
+          
+          # Khởi động lại container với image mới nhất
+          # -d để chạy ngầm
+          docker-compose up -d
+          
+          # Tùy chọn: Dọn dẹp các image cũ để tránh đầy ổ cứng máy ảo
+          docker image prune -f
