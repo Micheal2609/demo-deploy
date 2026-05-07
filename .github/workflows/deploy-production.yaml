@@ -49,4 +49,4 @@ jobs:
           docker-compose up -d
           
           # Tùy chọn: Dọn dẹp các image cũ để tránh đầy ổ cứng máy ảo
-          docker image prune -f
+          # docker image prune -f
