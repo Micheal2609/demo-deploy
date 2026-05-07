@@ -60,21 +60,18 @@ jobs:
           cloudflared access ssh --hostname ${{ secrets.SERVER_IP }} --dry-run
           echo "Tunnel is reachable!"
       - name: Deploy to Server via SSH
-        run: |
-          # 1. Tạo thư mục .ssh và lưu Private Key vào máy ảo GitHub
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          
-          # 2. Thực hiện SSH sử dụng ProxyCommand của cloudflared
-          # -o StrictHostKeyChecking=no: Bỏ qua bước xác thực host lần đầu (cần thiết cho auto)
-          ssh -o StrictHostKeyChecking=no \
-              -o ProxyCommand="cloudflared access ssh --hostname %h" \
-              -i ~/.ssh/id_rsa \
-              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
-            
-            # Các lệnh chạy TRÊN SERVER đặt ở đây
+        uses: appleboy/ssh-action@master
+        with:
+          # Các thông tin kết nối lấy từ GitHub Secrets
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # Kịch bản lệnh (script) sẽ chạy trực tiếp trên Server của bạn
+          port: 22
+          script: |
+            # Di chuyển vào thư mục chứa dự án trên server
             cd /home/${{ secrets.SERVER_USER }}/app
+            # Tải image mới nhất từ Docker Hub về server
             docker-compose pull
+            # Khởi động lại các container (ở chế độ chạy ngầm -d) với image mới
             docker-compose up -d
-          EOF
