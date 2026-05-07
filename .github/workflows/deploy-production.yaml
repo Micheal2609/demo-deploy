@@ -67,6 +67,9 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           # Kịch bản lệnh (script) sẽ chạy trực tiếp trên Server của bạn
+          port: 22
+          # Dòng này là "linh hồn" để kết nối qua Cloudflare
+          proxy_command: cloudflared access ssh --hostname %h
           script: |
             # Di chuyển vào thư mục chứa dự án trên server
             cd /home/${{ secrets.SERVER_USER }}/app
