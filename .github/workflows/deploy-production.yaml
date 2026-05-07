@@ -14,7 +14,7 @@ jobs:
   build-and-push:
     # Hệ điều hành sẽ chạy job này (máy ảo của GitHub)
     runs-on: ubuntu-latest
-    
+
     # Các bước thực thi trong job build-and-push
     steps:
       # Bước 1: Lấy code từ repository về máy ảo
@@ -45,9 +45,20 @@ jobs:
     # Chỉ chạy job này sau khi job 'build-and-push' hoàn thành thành công
     needs: build-and-push
     runs-on: ubuntu-latest
-    
+
     steps:
       # Bước duy nhất: Kết nối tới Server qua SSH và thực hiện lệnh
+      # BƯỚC 1: Phải có bước này để máy của GitHub có "công cụ" chui vào tunnel
+      - name: Install Cloudflared
+        run: |
+          curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared.deb
+
+      # BƯỚC 2: Kiểm tra xem tunnel có đang sống không (Debug)
+      - name: Test Tunnel Connectivity
+        run: |
+          cloudflared access ssh --hostname ${{ secrets.SERVER_IP }} --dry-run
+          echo "Tunnel is reachable!"
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@master
         with:
