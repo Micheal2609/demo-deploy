@@ -42,11 +42,11 @@ jobs:
           cd /home/${{ secrets.SERVER_USER }}/app
           
           # Tải bản build mới nhất vừa đẩy lên Docker Hub về
-          docker-compose pull
+          docker compose pull
           
           # Khởi động lại container với image mới nhất
           # -d để chạy ngầm
-          docker-compose up -d
+          docker compose up -d
           
           # Tùy chọn: Dọn dẹp các image cũ để tránh đầy ổ cứng máy ảo
           docker image prune -f
